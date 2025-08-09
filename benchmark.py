@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""Simple benchmark: total time vs steps for a fixed size.
-
-Runs sequential, OpenMP (if present), and tasks(blockrows=16/32 if present),
-and saves a single plot steps_vs_time.png. Keep it minimal and robust.
-"""
 import subprocess, re, statistics, sys
 from pathlib import Path
 
