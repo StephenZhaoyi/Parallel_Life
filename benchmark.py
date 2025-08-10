@@ -5,7 +5,11 @@ from pathlib import Path
 BUILD_DIR = Path('build')
 EXEC_SEQ = BUILD_DIR / 'default_sequential'
 EXEC_OMP_P = BUILD_DIR / 'default_openMP_parallel_for'
+EXEC_OMP_P_SIMD = BUILD_DIR / 'default_openMP_parallel_for_simd'
 EXEC_OMP_TASKS = BUILD_DIR / 'default_openMP_parallel_tasks'
+EXEC_ANTI_LIFE_SEQ = BUILD_DIR / 'antiLife_sequential'
+EXEC_ANTI_LIFE_P = BUILD_DIR / 'antiLife_parallel'
+
 WIDTH = 160
 HEIGHT = 96
 PROB = 0.25
@@ -50,28 +54,36 @@ def main():
 
     print(f'Benchmark: {WIDTH}x{HEIGHT}, prob={PROB}, repeats={REPEATS}')
     series = []
-    s1 = run_series('sequential', EXEC_SEQ)
-    if s1: series.append(s1)
+    d_seq = run_series('sequential', EXEC_SEQ)
+    if d_seq: series.append(d_seq)
 
-    s2 = run_series('OpenMP-parallel_for', EXEC_OMP_P)
-    if s2: series.append(s2)
-    s3 = run_series('OpenMP-tasks (blockrows=2)', EXEC_OMP_TASKS, extra_args=['--blockrows','2'])
-    if s3: series.append(s3)
+    d_parfor = run_series('OpenMP-parallel_for', EXEC_OMP_P)
+    if d_parfor: series.append(d_parfor)
+    d_parfor_simd = run_series('OpenMP-parallel_for_simd', EXEC_OMP_P_SIMD)
+    if d_parfor_simd: series.append(d_parfor_simd)
+    d_tasks_2 = run_series('OpenMP-tasks (blockrows=2)', EXEC_OMP_TASKS, extra_args=['--blockrows','2'])
+    if d_tasks_2: series.append(d_tasks_2)
+    
+    antiLife_seq = run_series('Anti-Life sequential', EXEC_ANTI_LIFE_SEQ)
+    if antiLife_seq: series.append(antiLife_seq)
 
-    s4 = run_series('OpenMP-tasks (blockrows=4)', EXEC_OMP_TASKS, extra_args=['--blockrows','4'])
-    if s4: series.append(s4)
+    antiLife_parfor = run_series('Anti-Life OpenMP-parallel_for', EXEC_ANTI_LIFE_P)
+    if antiLife_parfor: series.append(antiLife_parfor)
 
-    s5 = run_series('OpenMP-tasks (blockrows=8)', EXEC_OMP_TASKS, extra_args=['--blockrows','8'])
-    if s5: series.append(s5)
+    # d_tasks_4 = run_series('OpenMP-tasks (blockrows=4)', EXEC_OMP_TASKS, extra_args=['--blockrows','4'])
+    # if d_tasks_4: series.append(d_tasks_4)
 
-    s6 = run_series('OpenMP-tasks (blockrows=16)', EXEC_OMP_TASKS, extra_args=['--blockrows','16'])
-    if s6: series.append(s6)
+    # d_tasks_8 = run_series('OpenMP-tasks (blockrows=8)', EXEC_OMP_TASKS, extra_args=['--blockrows','8'])
+    # if d_tasks_8: series.append(d_tasks_8)
 
-    s7 = run_series('OpenMP-tasks (blockrows=32)', EXEC_OMP_TASKS, extra_args=['--blockrows','32'])
-    if s7: series.append(s7)
+    # d_tasks_16 = run_series('OpenMP-tasks (blockrows=16)', EXEC_OMP_TASKS, extra_args=['--blockrows','16'])
+    # if d_tasks_16: series.append(d_tasks_16)
 
-    s8 = run_series('OpenMP-tasks (blockrows=64)', EXEC_OMP_TASKS, extra_args=['--blockrows','64'])
-    if s8: series.append(s8)
+    # d_tasks_32 = run_series('OpenMP-tasks (blockrows=32)', EXEC_OMP_TASKS, extra_args=['--blockrows','32'])
+    # if d_tasks_32: series.append(d_tasks_32)
+
+    # d_tasks_64 = run_series('OpenMP-tasks (blockrows=64)', EXEC_OMP_TASKS, extra_args=['--blockrows','64'])
+    # if d_tasks_64: series.append(d_tasks_64)
 
     try:
         import matplotlib.pyplot as plt
