@@ -1,9 +1,10 @@
-// AntiLife OpenMP parallel_for variant: applies NOT of Life(B3/S23) per cell
+// AntiLife OpenMP tasks-based variant
 #include <iostream>
 #include <vector>
 #include <random>
 #include <chrono>
 #include <thread>
+#include <algorithm>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
@@ -24,11 +25,34 @@ inline int neighbor_count(const Grid& g, int y, int x) {
     return cnt;
 }
 
-void step(Grid& cur, Grid& nxt) {
-    static const uint8_t B[9] = {1,1,0,1,0,1,1,0,0}; // 01356
-    static const uint8_t S[9] = {1,1,1,1,1,1,0,0,0}; // 012345
+// Split rows into blocks; each block becomes a task. Apply AntiLife rule.
+void step_antilife_tasks(Grid& cur, Grid& nxt, int blockRows) {
+    static const uint8_t B[9] = {0,1,0,0,0,0,0,0,0}; // 1
+    static const uint8_t S[9] = {0,1,0,0,0,0,0,0,0}; // 1
 
-    #pragma omp parallel for collapse(2) schedule(static)
+    #ifdef _OPENMP
+    #pragma omp parallel
+    {
+        #pragma omp single nowait
+        {
+            for (int by = 0; by < gHeight; by += blockRows) {
+                int ey = std::min(by + blockRows, gHeight);
+                #pragma omp task firstprivate(by, ey) shared(cur, nxt)
+                {
+                    for (int y = by; y < ey; ++y) {
+                        for (int x = 0; x < gWidth; ++x) {
+                            int n = neighbor_count(cur, y, x);
+                            bool alive = cur[y][x] != 0;
+                            bool nextAlive = (!alive && B[n]) || (alive && S[n]);
+                            nxt[y][x] = static_cast<uint8_t>(nextAlive);
+                        }
+                    }
+                }
+            }
+            #pragma omp taskwait
+        }
+    }
+#else
     for (int y = 0; y < gHeight; ++y)
         for (int x = 0; x < gWidth; ++x) {
             int n = neighbor_count(cur, y, x);
@@ -36,12 +60,12 @@ void step(Grid& cur, Grid& nxt) {
             bool nextAlive = (!alive && B[n]) || (alive && S[n]);
             nxt[y][x] = static_cast<uint8_t>(nextAlive);
         }
-
+#endif
     cur.swap(nxt);
 }
 
 void random_init(Grid& g, double p = 0.25) {
-    std::mt19937 rng{std::random_device{}()} ;
+    std::mt19937 rng{std::random_device{}()};
     std::bernoulli_distribution bern(p);
     for (auto& row : g)
         for (auto& cell : row)
@@ -64,6 +88,7 @@ int main(int argc, char* argv[]) {
     int steps = -1;
     double prob = 0.25;
     int threads = -1; // -1 = default
+    int blockRows = 32; // configurable via --blockrows
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -73,6 +98,7 @@ int main(int argc, char* argv[]) {
         else if (a == "--width" && i + 1 < argc) gWidth = std::stoi(argv[++i]);
         else if (a == "--height" && i + 1 < argc) gHeight = std::stoi(argv[++i]);
         else if (a == "--threads" && i + 1 < argc) threads = std::stoi(argv[++i]);
+        else if (a == "--blockrows" && i + 1 < argc) blockRows = std::max(1, std::stoi(argv[++i]));
     }
 #ifdef _OPENMP
     if (threads > 0) omp_set_num_threads(threads);
@@ -90,7 +116,7 @@ int main(int argc, char* argv[]) {
     if (!draw_enabled && steps > 0) {
         auto t0 = std::chrono::steady_clock::now();
         for (int i = 0; i < steps; ++i) {
-            step(cur, nxt);
+            step_antilife_tasks(cur, nxt, blockRows);
         }
         auto t1 = std::chrono::steady_clock::now();
         auto ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -116,7 +142,7 @@ int main(int argc, char* argv[]) {
     while (steps < 0 || iter < steps) {
         auto frame_start = std::chrono::steady_clock::now();
         if (draw_enabled) draw(cur);
-        step(cur, nxt);
+        step_antilife_tasks(cur, nxt, blockRows);
         if (draw_enabled) std::this_thread::sleep_until(frame_start + frame_interval);
         ++iter;
     }

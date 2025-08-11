@@ -1,4 +1,3 @@
-// AntiLife OpenMP tasks-based variant
 #include <iostream>
 #include <vector>
 #include <random>
@@ -25,7 +24,6 @@ inline int neighbor_count(const Grid& g, int y, int x) {
     return cnt;
 }
 
-// Split rows into blocks; each block becomes a task. Apply AntiLife rule.
 void step_antilife_tasks(Grid& cur, Grid& nxt, int blockRows) {
     static const uint8_t B[9] = {1,1,1,1,1,0,0,1,1}; // 0123478
     static const uint8_t S[9] = {0,0,0,1,1,0,1,1,1}; // 34678

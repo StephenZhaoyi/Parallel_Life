@@ -1,43 +1,23 @@
-// AntiLife OpenMP parallel_for + SIMD variant
 #include <iostream>
 #include <vector>
 #include <random>
 #include <chrono>
 #include <thread>
-#ifdef _OPENMP
-#include <omp.h>
-#endif
+#include <string>
+#include "customLife_common.hpp"
 
-using Grid = std::vector<std::vector<uint8_t>>;
-static int gWidth  = 80;
-static int gHeight = 24;
+int gWidth = 80;
+int gHeight = 24;
 constexpr int kFPS = 10;
 
-inline int neighbor_count(const Grid& g, int y, int x) {
-    int cnt = 0;
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
-            if (dy || dx)
-                cnt += g[(y + dy + gHeight) % gHeight][(x + dx + gWidth) % gWidth];
-        }
-    }
-    return cnt;
-}
-
-void step_antilife_parallel_simd(Grid& cur, Grid& nxt) {
-    static const uint8_t B[9] = {1,1,0,1,0,1,1,0,0}; // 01356
-    static const uint8_t S[9] = {1,1,1,1,1,1,0,0,0}; // 012345
-
-    #pragma omp parallel for schedule(static)
-    for (int y = 0; y < gHeight; ++y) {
-    #pragma omp simd
+void step(Grid& cur, Grid& nxt, const RuleTables& rt) {
+    for (int y = 0; y < gHeight; ++y)
         for (int x = 0; x < gWidth; ++x) {
             int n = neighbor_count(cur, y, x);
             bool alive = cur[y][x] != 0;
-            bool nextAlive = (!alive && B[n]) || (alive && S[n]);
+            bool nextAlive = (!alive && rt.B[n]) || (alive && rt.S[n]);
             nxt[y][x] = static_cast<uint8_t>(nextAlive);
         }
-    }
     cur.swap(nxt);
 }
 
@@ -64,7 +44,7 @@ int main(int argc, char* argv[]) {
     bool draw_enabled = true;
     int steps = -1;
     double prob = 0.25;
-    int threads = -1; // -1 = default
+    std::string rulestr = "B3/S23"; // default Life
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -73,17 +53,17 @@ int main(int argc, char* argv[]) {
         else if (a == "--prob" && i + 1 < argc) prob = std::stod(argv[++i]);
         else if (a == "--width" && i + 1 < argc) gWidth = std::stoi(argv[++i]);
         else if (a == "--height" && i + 1 < argc) gHeight = std::stoi(argv[++i]);
-        else if (a == "--threads" && i + 1 < argc) threads = std::stoi(argv[++i]);
+        else if (a == "--rule" && i + 1 < argc) rulestr = argv[++i];
     }
-#ifdef _OPENMP
-    if (threads > 0) omp_set_num_threads(threads);
-#endif
     if (draw_enabled) std::cout << "\033[2J";
 
     if (gWidth <= 0 || gHeight <= 0) {
         std::cerr << "Invalid dimensions" << std::endl;
         return 1;
     }
+
+    RuleTables rt = parse_rulestring(rulestr);
+
     Grid cur(gHeight, std::vector<uint8_t>(gWidth, 0));
     Grid nxt = cur;
     random_init(cur, prob);
@@ -91,20 +71,13 @@ int main(int argc, char* argv[]) {
     if (!draw_enabled && steps > 0) {
         auto t0 = std::chrono::steady_clock::now();
         for (int i = 0; i < steps; ++i) {
-            step_antilife_parallel_simd(cur, nxt);
+            step(cur, nxt, rt);
         }
         auto t1 = std::chrono::steady_clock::now();
         auto ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
         std::cout << "steps=" << steps
                   << " width=" << gWidth
                   << " height=" << gHeight
-                  << " threads=" << (
-#ifdef _OPENMP
-                  (threads>0?threads:omp_get_max_threads())
-#else
-                  1
-#endif
-                  )
                   << " time_ms=" << ms
                   << " per_step_ms=" << ms / steps
                   << " per_cell_us=" << (ms * 1000.0) / (steps * gWidth * gHeight)
@@ -117,7 +90,7 @@ int main(int argc, char* argv[]) {
     while (steps < 0 || iter < steps) {
         auto frame_start = std::chrono::steady_clock::now();
         if (draw_enabled) draw(cur);
-        step_antilife_parallel_simd(cur, nxt);
+        step(cur, nxt, rt);
         if (draw_enabled) std::this_thread::sleep_until(frame_start + frame_interval);
         ++iter;
     }

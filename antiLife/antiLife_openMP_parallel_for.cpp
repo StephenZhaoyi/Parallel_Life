@@ -1,4 +1,3 @@
-// AntiLife OpenMP parallel_for variant: applies NOT of Life(B3/S23) per cell
 #include <iostream>
 #include <vector>
 #include <random>

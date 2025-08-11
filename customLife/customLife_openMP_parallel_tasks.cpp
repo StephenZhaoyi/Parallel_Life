@@ -1,36 +1,21 @@
-// AntiLife OpenMP tasks-based variant
 #include <iostream>
 #include <vector>
 #include <random>
 #include <chrono>
 #include <thread>
+#include <string>
 #include <algorithm>
 #ifdef _OPENMP
 #include <omp.h>
 #endif
+#include "customLife_common.hpp"
 
-using Grid = std::vector<std::vector<uint8_t>>;
-static int gWidth  = 80;
-static int gHeight = 24;
+int gWidth = 80;
+int gHeight = 24;
 constexpr int kFPS = 10;
 
-inline int neighbor_count(const Grid& g, int y, int x) {
-    int cnt = 0;
-    for (int dy = -1; dy <= 1; ++dy) {
-        for (int dx = -1; dx <= 1; ++dx) {
-            if (dy || dx)
-                cnt += g[(y + dy + gHeight) % gHeight][(x + dx + gWidth) % gWidth];
-        }
-    }
-    return cnt;
-}
-
-// Split rows into blocks; each block becomes a task. Apply AntiLife rule.
-void step_antilife_tasks(Grid& cur, Grid& nxt, int blockRows) {
-    static const uint8_t B[9] = {1,1,0,1,0,1,1,0,0}; // 01356
-    static const uint8_t S[9] = {1,1,1,1,1,1,0,0,0}; // 012345
-
-    #ifdef _OPENMP
+void step_tasks(Grid& cur, Grid& nxt, const RuleTables& rt, int blockRows) {
+#ifdef _OPENMP
     #pragma omp parallel
     {
         #pragma omp single nowait
@@ -43,7 +28,7 @@ void step_antilife_tasks(Grid& cur, Grid& nxt, int blockRows) {
                         for (int x = 0; x < gWidth; ++x) {
                             int n = neighbor_count(cur, y, x);
                             bool alive = cur[y][x] != 0;
-                            bool nextAlive = (!alive && B[n]) || (alive && S[n]);
+                            bool nextAlive = (!alive && rt.B[n]) || (alive && rt.S[n]);
                             nxt[y][x] = static_cast<uint8_t>(nextAlive);
                         }
                     }
@@ -57,7 +42,7 @@ void step_antilife_tasks(Grid& cur, Grid& nxt, int blockRows) {
         for (int x = 0; x < gWidth; ++x) {
             int n = neighbor_count(cur, y, x);
             bool alive = cur[y][x] != 0;
-            bool nextAlive = (!alive && B[n]) || (alive && S[n]);
+            bool nextAlive = (!alive && rt.B[n]) || (alive && rt.S[n]);
             nxt[y][x] = static_cast<uint8_t>(nextAlive);
         }
 #endif
@@ -87,8 +72,9 @@ int main(int argc, char* argv[]) {
     bool draw_enabled = true;
     int steps = -1;
     double prob = 0.25;
-    int threads = -1; // -1 = default
-    int blockRows = 32; // configurable via --blockrows
+    int threads = -1;
+    int blockRows = 32;
+    std::string rulestr = "B3/S23";
 
     for (int i = 1; i < argc; ++i) {
         std::string a = argv[i];
@@ -99,6 +85,7 @@ int main(int argc, char* argv[]) {
         else if (a == "--height" && i + 1 < argc) gHeight = std::stoi(argv[++i]);
         else if (a == "--threads" && i + 1 < argc) threads = std::stoi(argv[++i]);
         else if (a == "--blockrows" && i + 1 < argc) blockRows = std::max(1, std::stoi(argv[++i]));
+        else if (a == "--rule" && i + 1 < argc) rulestr = argv[++i];
     }
 #ifdef _OPENMP
     if (threads > 0) omp_set_num_threads(threads);
@@ -109,6 +96,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "Invalid dimensions" << std::endl;
         return 1;
     }
+
+    RuleTables rt = parse_rulestring(rulestr);
+
     Grid cur(gHeight, std::vector<uint8_t>(gWidth, 0));
     Grid nxt = cur;
     random_init(cur, prob);
@@ -116,7 +106,7 @@ int main(int argc, char* argv[]) {
     if (!draw_enabled && steps > 0) {
         auto t0 = std::chrono::steady_clock::now();
         for (int i = 0; i < steps; ++i) {
-            step_antilife_tasks(cur, nxt, blockRows);
+            step_tasks(cur, nxt, rt, blockRows);
         }
         auto t1 = std::chrono::steady_clock::now();
         auto ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -142,7 +132,7 @@ int main(int argc, char* argv[]) {
     while (steps < 0 || iter < steps) {
         auto frame_start = std::chrono::steady_clock::now();
         if (draw_enabled) draw(cur);
-        step_antilife_tasks(cur, nxt, blockRows);
+        step_tasks(cur, nxt, rt, blockRows);
         if (draw_enabled) std::this_thread::sleep_until(frame_start + frame_interval);
         ++iter;
     }

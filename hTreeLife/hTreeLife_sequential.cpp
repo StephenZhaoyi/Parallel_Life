@@ -1,5 +1,4 @@
-// AntiLife sequential variant: applies the logical NOT of Conway's Life rule per cell
-// CLI-compatible with other targets: --no-draw, --steps, --prob, --width, --height
+
 #include <iostream>
 #include <vector>
 #include <random>

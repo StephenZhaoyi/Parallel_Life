@@ -1,4 +1,3 @@
-// AntiLife OpenMP tasks-based variant
 #include <iostream>
 #include <vector>
 #include <random>
