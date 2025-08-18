@@ -3,6 +3,7 @@
 This is a educational course project for *Parallel Computing(CITHN2003)* with the following discriptions:
 
 University Name: Technical University of Munich
+
 Course Name: Parallel Computing(CITHN2003)
 
 Create parallelled version(with openMP) of Conway's game of life and do benchmarking.
