@@ -1,4 +1,3 @@
-// AntiLife OpenMP parallel_for + SIMD variant
 #include <iostream>
 #include <vector>
 #include <random>

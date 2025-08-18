@@ -24,7 +24,7 @@ inline int neighbor_count(const Grid& g, int y, int x) {
     return cnt;
 }
 
-void step_antilife_tasks(Grid& cur, Grid& nxt, int blockRows) {
+void step_tasks(Grid& cur, Grid& nxt, int blockRows) {
     static const uint8_t B[9] = {1,1,0,1,0,1,1,0,0}; // 01356
     static const uint8_t S[9] = {1,1,1,1,1,1,0,0,0}; // 012345
 
@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     if (!draw_enabled && steps > 0) {
         auto t0 = std::chrono::steady_clock::now();
         for (int i = 0; i < steps; ++i) {
-            step_antilife_tasks(cur, nxt, blockRows);
+            step_tasks(cur, nxt, blockRows);
         }
         auto t1 = std::chrono::steady_clock::now();
         auto ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
@@ -140,7 +140,7 @@ int main(int argc, char* argv[]) {
     while (steps < 0 || iter < steps) {
         auto frame_start = std::chrono::steady_clock::now();
         if (draw_enabled) draw(cur);
-        step_antilife_tasks(cur, nxt, blockRows);
+    step_tasks(cur, nxt, blockRows);
         if (draw_enabled) std::this_thread::sleep_until(frame_start + frame_interval);
         ++iter;
     }
